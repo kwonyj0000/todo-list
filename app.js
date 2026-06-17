@@ -4,12 +4,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const STORAGE_KEYS = {
-    USER_EMAIL: 'userEmail',
-    TODOS: 'todos',
-    USER_ID: 'userId'
-};
-
 const PRIORITY_ORDER = {
     high: 1,
     medium: 2,
@@ -23,59 +17,49 @@ const PRIORITY_LABELS = {
 };
 
 let todos = [];
-let userEmail = '';
-let userId = null;
+let currentUser = null;
 let currentFilter = 'all';
 let draggedElement = null;
 let draggedTodoId = null;
 
-async function saveUserEmail(email) {
-    try {
-        // Supabase에서 사용자 생성 또는 조회 (upsert)
-        const { data, error } = await supabaseClient
-            .from('users')
-            .upsert({ email }, { onConflict: 'email' })
-            .select()
-            .single();
+// 인증 확인 함수
+async function checkAuth() {
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
 
+    if (error) {
+        console.error('인증 확인 오류:', error);
+        redirectToLogin();
+        return null;
+    }
+
+    if (!session) {
+        redirectToLogin();
+        return null;
+    }
+
+    currentUser = session.user;
+    return currentUser;
+}
+
+function redirectToLogin() {
+    window.location.href = 'login.html';
+}
+
+// 로그아웃 함수
+async function handleLogout() {
+    try {
+        const { error } = await supabaseClient.auth.signOut();
         if (error) throw error;
 
-        userId = data.id;
-        userEmail = email;
-
-        // localStorage에도 백업
-        localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
-        localStorage.setItem(STORAGE_KEYS.USER_ID, userId);
-
-        return data;
+        redirectToLogin();
     } catch (error) {
-        console.error('사용자 저장 오류:', error);
-        alert('사용자 정보 저장에 실패했습니다.');
-        throw error;
+        console.error('로그아웃 오류:', error);
+        alert('로그아웃에 실패했습니다.');
     }
-}
-
-async function loadUserEmail() {
-    // localStorage에서 먼저 확인
-    const cachedEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
-    const cachedUserId = localStorage.getItem(STORAGE_KEYS.USER_ID);
-
-    if (cachedEmail && cachedUserId) {
-        userEmail = cachedEmail;
-        userId = cachedUserId;
-        return cachedEmail;
-    }
-
-    return null;
-}
-
-async function saveTodos() {
-    // Supabase 동기화는 각 CRUD 함수에서 개별적으로 처리
-    // 이 함수는 호환성을 위해 유지
 }
 
 async function loadTodos() {
-    if (!userId) {
+    if (!currentUser) {
         todos = [];
         return;
     }
@@ -84,13 +68,12 @@ async function loadTodos() {
         const { data, error } = await supabaseClient
             .from('todos')
             .select('*')
-            .eq('user_id', userId)
+            .eq('user_id', currentUser.id)
             .order('priority', { ascending: true })
             .order('order', { ascending: true });
 
         if (error) throw error;
 
-        // Supabase의 UUID를 문자열로 변환하여 기존 로직과 호환
         todos = data.map(todo => ({
             id: todo.id,
             text: todo.text,
@@ -183,7 +166,7 @@ function updateNotificationButton() {
     const notificationArea = document.getElementById('notification-area');
     const incompleteTodos = getIncompleteTodos();
 
-    if (incompleteTodos.length > 0 && userEmail) {
+    if (incompleteTodos.length > 0 && currentUser) {
         notificationArea.innerHTML = `
             <button id="notification-btn">
                 미완료 ${incompleteTodos.length}개 알림 보내기
@@ -200,20 +183,21 @@ function updateNotificationButton() {
 function handleNotification() {
     const incompleteTodos = getIncompleteTodos();
 
-    if (!userEmail) {
-        alert('이메일을 먼저 등록해주세요.');
+    if (!currentUser) {
+        alert('로그인이 필요합니다.');
         return;
     }
 
-    console.log('알림 발송 대상 이메일:', userEmail);
+    console.log('알림 발송 대상 이메일:', currentUser.email);
     console.log('미완료 항목:', incompleteTodos);
 
-    alert(`알림 기능은 백엔드 연동 후 사용 가능합니다.\n\n발송 대상: ${userEmail}\n미완료 항목: ${incompleteTodos.length}개`);
+    alert(`알림 기능은 백엔드 연동 후 사용 가능합니다.\n\n발송 대상: ${currentUser.email}\n미완료 항목: ${incompleteTodos.length}개`);
 }
 
 async function addTodo(text, priority = 'medium') {
-    if (!userId) {
-        alert('먼저 이메일을 등록해주세요.');
+    if (!currentUser) {
+        alert('로그인이 필요합니다.');
+        redirectToLogin();
         return;
     }
 
@@ -223,7 +207,7 @@ async function addTodo(text, priority = 'medium') {
         const { data, error } = await supabaseClient
             .from('todos')
             .insert({
-                user_id: userId,
+                user_id: currentUser.id,
                 text: text,
                 completed: false,
                 priority: priority,
@@ -234,7 +218,6 @@ async function addTodo(text, priority = 'medium') {
 
         if (error) throw error;
 
-        // 로컬 todos 배열에 추가
         todos.push({
             id: data.id,
             text: data.text,
@@ -265,7 +248,6 @@ async function toggleTodo(id) {
 
         if (error) throw error;
 
-        // 로컬 상태 업데이트
         todo.completed = newCompleted;
         renderTodos();
     } catch (error) {
@@ -283,35 +265,12 @@ async function deleteTodo(id) {
 
         if (error) throw error;
 
-        // 로컬 배열에서 제거
         todos = todos.filter(t => t.id !== id);
         renderTodos();
     } catch (error) {
         console.error('할 일 삭제 오류:', error);
         alert('할 일 삭제에 실패했습니다.');
     }
-}
-
-function updateUserEmailDisplay() {
-    const userForm = document.getElementById('user-form');
-    const userEmailDisplay = document.getElementById('user-email-display');
-    const displayedEmail = document.getElementById('displayed-email');
-    const userEmailInput = document.getElementById('user-email');
-
-    if (userEmail) {
-        userForm.style.display = 'none';
-        userEmailDisplay.style.display = 'flex';
-        displayedEmail.textContent = userEmail;
-        updateNotificationButton();
-    } else {
-        userForm.style.display = 'block';
-        userEmailDisplay.style.display = 'none';
-    }
-}
-
-function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
 }
 
 function attachDragHandlers() {
@@ -373,9 +332,8 @@ async function handleDrop(e) {
     }
 
     const targetPriority = targetTodo.priority;
-    const priorityChanged = draggedTodo.priority !== targetPriority;
 
-    if (priorityChanged) {
+    if (draggedTodo.priority !== targetPriority) {
         draggedTodo.priority = targetPriority;
     }
 
@@ -401,18 +359,16 @@ async function handleDrop(e) {
         todo.order = index;
     });
 
-    // Supabase에 변경사항 저장
     try {
         const updates = samePriorityTodos.map(todo => ({
             id: todo.id,
-            user_id: userId,
+            user_id: currentUser.id,
             text: todo.text,
             completed: todo.completed,
             priority: todo.priority,
             order: todo.order
         }));
 
-        // upsert로 일괄 업데이트
         const { error } = await supabaseClient
             .from('todos')
             .upsert(updates);
@@ -423,7 +379,6 @@ async function handleDrop(e) {
     } catch (error) {
         console.error('드래그 앤 드롭 저장 오류:', error);
         alert('순서 변경 저장에 실패했습니다.');
-        // 실패 시 데이터 다시 로드
         await loadTodos();
         renderTodos();
     }
@@ -441,50 +396,32 @@ function handleDragEnd(e) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadUserEmail();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'block';
 
-    if (userId) {
-        await loadTodos();
+    // 인증 확인
+    const user = await checkAuth();
+    if (!user) return;
+
+    // 사용자 이메일 표시
+    const userEmailDisplay = document.getElementById('user-email-display');
+    if (userEmailDisplay) {
+        userEmailDisplay.textContent = user.email;
     }
 
-    updateUserEmailDisplay();
+    // 할 일 목록 로드
+    await loadTodos();
     renderTodos();
 
-    const userForm = document.getElementById('user-form');
-    userForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const emailInput = document.getElementById('user-email');
-        const email = emailInput.value.trim();
+    if (loadingEl) loadingEl.style.display = 'none';
 
-        if (!email) {
-            alert('이메일을 입력해주세요.');
-            return;
-        }
+    // 로그아웃 버튼
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
 
-        if (!isValidEmail(email)) {
-            alert('올바른 이메일 형식을 입력해주세요.');
-            return;
-        }
-
-        await saveUserEmail(email);
-        await loadTodos();
-        updateUserEmailDisplay();
-        renderTodos();
-        emailInput.value = '';
-    });
-
-    const editEmailBtn = document.getElementById('edit-email-btn');
-    editEmailBtn.addEventListener('click', () => {
-        const userForm = document.getElementById('user-form');
-        const userEmailDisplay = document.getElementById('user-email-display');
-        const userEmailInput = document.getElementById('user-email');
-
-        userForm.style.display = 'block';
-        userEmailDisplay.style.display = 'none';
-        userEmailInput.value = userEmail;
-        userEmailInput.focus();
-    });
-
+    // 할 일 추가 폼
     const todoForm = document.getElementById('todo-form');
     todoForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -504,6 +441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         todoInput.focus();
     });
 
+    // 할 일 클릭 이벤트
     const todoList = document.getElementById('todo-list');
     todoList.addEventListener('click', (e) => {
         const todoItem = e.target.closest('.todo-item');
@@ -518,13 +456,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // 우선순위 필터
     const priorityFilter = document.getElementById('priority-filter');
     priorityFilter.addEventListener('change', (e) => {
         currentFilter = e.target.value;
         renderTodos();
     });
-
-    if (getIncompleteTodos().length > 0 && userEmail) {
-        console.log('페이지 로드 시 미완료 항목이 있습니다. 알림 버튼이 표시됩니다.');
-    }
 });

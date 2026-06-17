@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - Todo List</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container auth-container">
+        <header>
+            <h1>Todo List 로그인</h1>
+        </header>
+
+        <main>
+            <section class="card">
+                <div class="card-header">
+                    <h2>이메일로 로그인</h2>
+                </div>
+                <div class="card-content">
+                    <form id="login-form">
+                        <div class="form-group">
+                            <div class="input-field">
+                                <input
+                                    type="email"
+                                    id="login-email"
+                                    placeholder="example@email.com"
+                                    required
+                                >
+                            </div>
+                            <button type="submit" class="btn btn-primary">Magic Link 전송</button>
+                        </div>
+                    </form>
+                    <div id="message" class="message"></div>
+                    <p class="auth-link">
+                        계정이 없으신가요? <a href="signup.html">회원가입</a>
+                    </p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="auth.js"></script>
+</body>
+</html>

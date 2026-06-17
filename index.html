@@ -13,34 +13,16 @@
     <div class="container">
         <header>
             <h1>오늘 할 일</h1>
+            <div class="header-actions">
+                <span id="user-email-display"></span>
+                <button id="logout-btn" class="btn btn-text">로그아웃</button>
+            </div>
         </header>
 
         <main>
-            <section class="card user-info-section">
-                <div class="card-header">
-                    <h2>내 정보</h2>
-                </div>
-                <div class="card-content">
-                    <form id="user-form">
-                        <div class="form-group">
-                            <div class="input-field">
-                                <input
-                                    type="email"
-                                    id="user-email"
-                                    placeholder="example@email.com"
-                                    required
-                                >
-                            </div>
-                            <button type="submit" class="btn btn-primary">저장</button>
-                        </div>
-                    </form>
-                    <div id="user-email-display" class="user-email-display" style="display: none;">
-                        <span class="label">이메일</span>
-                        <span id="displayed-email"></span>
-                        <button id="edit-email-btn" class="btn-text">수정</button>
-                    </div>
-                </div>
-            </section>
+            <div id="loading" class="loading" style="display: none;">
+                <p>로딩 중...</p>
+            </div>
 
             <section class="card todo-input-section">
                 <div class="card-header">

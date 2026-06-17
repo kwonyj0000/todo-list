@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Connection Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase 연결 테스트</h1>
+    <button id="test-btn">연결 테스트</button>
+    <pre id="result"></pre>
+
+    <script>
+        const SUPABASE_URL = 'https://bmarqwvqkvegnqzbdwlo.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtYXJxd3Zxa3ZlZ25xemJkd2xvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2Njg2MDYsImV4cCI6MjA5NzI0NDYwNn0.KgJlfJWk-XIqZX24Tvopvt_frNNVO5x2Cs1wHDVDJR8';
+
+        console.log('window.supabase:', window.supabase);
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('supabase client:', supabaseClient);
+
+        document.getElementById('test-btn').addEventListener('click', async () => {
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = '테스트 중...';
+
+            try {
+                // 1. users 테이블 조회 테스트
+                console.log('Testing users table...');
+                const { data: usersData, error: usersError } = await supabaseClient
+                    .from('users')
+                    .select('*')
+                    .limit(5);
+
+                if (usersError) {
+                    console.error('Users error:', usersError);
+                    resultEl.textContent = `❌ Users 테이블 오류:\n${JSON.stringify(usersError, null, 2)}`;
+                    return;
+                }
+
+                console.log('Users data:', usersData);
+
+                // 2. todos 테이블 조회 테스트
+                console.log('Testing todos table...');
+                const { data: todosData, error: todosError } = await supabaseClient
+                    .from('todos')
+                    .select('*')
+                    .limit(5);
+
+                if (todosError) {
+                    console.error('Todos error:', todosError);
+                    resultEl.textContent = `❌ Todos 테이블 오류:\n${JSON.stringify(todosError, null, 2)}`;
+                    return;
+                }
+
+                console.log('Todos data:', todosData);
+
+                // 3. 테스트 사용자 생성
+                console.log('Testing user creation...');
+                const testEmail = `test${Date.now()}@example.com`;
+                const { data: newUser, error: createError } = await supabaseClient
+                    .from('users')
+                    .insert({ email: testEmail })
+                    .select()
+                    .single();
+
+                if (createError) {
+                    console.error('Create error:', createError);
+                    resultEl.textContent = `❌ 사용자 생성 오류:\n${JSON.stringify(createError, null, 2)}`;
+                    return;
+                }
+
+                console.log('New user:', newUser);
+
+                resultEl.textContent = `✅ 연결 성공!
+
+Users: ${usersData.length}개
+Todos: ${todosData.length}개
+새 테스트 사용자 생성: ${newUser.email}
+
+전체 데이터:
+${JSON.stringify({ usersData, todosData, newUser }, null, 2)}`;
+
+            } catch (error) {
+                console.error('Unexpected error:', error);
+                resultEl.textContent = `❌ 예상치 못한 오류:\n${error.message}\n${error.stack}`;
+            }
+        });
+    </script>
+</body>
+</html>
