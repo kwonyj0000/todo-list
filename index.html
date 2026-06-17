@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>오늘 할 일</h1>
+        </header>
+
+        <main>
+            <section class="card user-info-section">
+                <div class="card-header">
+                    <h2>내 정보</h2>
+                </div>
+                <div class="card-content">
+                    <form id="user-form">
+                        <div class="form-group">
+                            <div class="input-field">
+                                <input
+                                    type="email"
+                                    id="user-email"
+                                    placeholder="example@email.com"
+                                    required
+                                >
+                            </div>
+                            <button type="submit" class="btn btn-primary">저장</button>
+                        </div>
+                    </form>
+                    <div id="user-email-display" class="user-email-display" style="display: none;">
+                        <span class="label">이메일</span>
+                        <span id="displayed-email"></span>
+                        <button id="edit-email-btn" class="btn-text">수정</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card todo-input-section">
+                <div class="card-header">
+                    <h2>할 일 추가</h2>
+                </div>
+                <div class="card-content">
+                    <form id="todo-form">
+                        <div class="form-group">
+                            <div class="input-field">
+                                <input
+                                    type="text"
+                                    id="todo-input"
+                                    placeholder="할 일을 입력하세요"
+                                    required
+                                >
+                            </div>
+                            <div class="select-field">
+                                <select id="priority-select" class="priority-select" aria-label="우선순위 선택">
+                                    <option value="low">낮음</option>
+                                    <option value="medium" selected>중간</option>
+                                    <option value="high">높음</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">추가</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="card todo-list-section">
+                <div class="todo-header">
+                    <h2>할 일 목록</h2>
+                    <div class="header-actions">
+                        <div class="filter-group">
+                            <label for="priority-filter">필터</label>
+                            <select id="priority-filter" class="priority-filter">
+                                <option value="all">전체</option>
+                                <option value="high">높음</option>
+                                <option value="medium">중간</option>
+                                <option value="low">낮음</option>
+                            </select>
+                        </div>
+                        <div id="notification-area"></div>
+                    </div>
+                </div>
+                <ul id="todo-list" class="todo-list">
+                </ul>
+                <div id="empty-state" class="empty-state">
+                    할 일이 없습니다. 새로운 할 일을 추가해보세요!
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
