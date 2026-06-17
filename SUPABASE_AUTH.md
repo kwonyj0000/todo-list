@@ -293,7 +293,7 @@ async function handleSignup(email) {
         const { data, error } = await supabaseClient.auth.signUp({
             email: email,
             options: {
-                emailRedirectTo: `${window.location.origin}/index.html`
+                emailRedirectTo: new URL('index.html', window.location.href).href
             }
         });
 
@@ -315,7 +315,7 @@ async function handleLogin(email) {
         const { data, error } = await supabaseClient.auth.signInWithOtp({
             email: email,
             options: {
-                emailRedirectTo: `${window.location.origin}/index.html`
+                emailRedirectTo: new URL('index.html', window.location.href).href
             }
         });
 
@@ -593,7 +593,9 @@ async function handleSocialLogin(provider) {
         const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: provider, // 'google' | 'github'
             options: {
-                redirectTo: `${window.location.origin}/index.html`
+                // origin은 하위 경로(/todo-list/)를 버려 GitHub Pages에서 404 발생.
+                // 현재 페이지 기준 상대경로로 해석해 로컬·배포 환경 모두 대응.
+                redirectTo: new URL('index.html', window.location.href).href
             }
         });
         if (error) throw error;

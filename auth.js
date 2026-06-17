@@ -32,7 +32,7 @@ async function handleSignup(email) {
             email: email,
             password: tempPassword,
             options: {
-                emailRedirectTo: `${window.location.origin}/index.html`
+                emailRedirectTo: new URL('index.html', window.location.href).href
             }
         });
 
@@ -56,7 +56,7 @@ async function handleLogin(email) {
         const { data, error } = await supabaseClient.auth.signInWithOtp({
             email: email,
             options: {
-                emailRedirectTo: `${window.location.origin}/index.html`
+                emailRedirectTo: new URL('index.html', window.location.href).href
             }
         });
 
@@ -75,7 +75,7 @@ async function handleSocialLogin(provider) {
         const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: provider,
             options: {
-                redirectTo: `${window.location.origin}/index.html`
+                redirectTo: new URL('index.html', window.location.href).href
             }
         });
 
