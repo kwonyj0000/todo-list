@@ -495,6 +495,143 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 ---
 
+## 5단계: 소셜 로그인 (Google / GitHub) 설정
+
+기존 Magic Link 방식 위에 Google·GitHub 소셜 로그인을 추가합니다. 프론트엔드는 Supabase의 `signInWithOAuth()`를 사용하며, **실제 동작을 위해서는 아래 대시보드 설정이 반드시 선행되어야 합니다.**
+
+### 5.0 콜백(Callback) URL 개념
+
+모든 OAuth 공급자는 인증 완료 후 Supabase의 고정 콜백 주소로 사용자를 돌려보냅니다. 이 주소를 각 공급자 콘솔에 등록해야 합니다.
+
+```
+https://<프로젝트-ref>.supabase.co/auth/v1/callback
+```
+
+현재 프로젝트 기준:
+
+```
+https://bmarqwvqkvegnqzbdwlo.supabase.co/auth/v1/callback
+```
+
+> 흐름: 앱 → 공급자(구글/깃허브) 로그인 → **Supabase 콜백 URL** → 앱의 `redirectTo`(index.html)
+
+### 5.1 Google OAuth 설정
+
+#### (1) Google Cloud Console에서 OAuth 클라이언트 생성
+
+1. [Google Cloud Console](https://console.cloud.google.com/) 접속 후 프로젝트 생성/선택
+2. **APIs & Services** → **OAuth consent screen**
+   - User Type: **External** 선택 후 앱 이름·지원 이메일 등 필수 항목 입력
+   - 테스트 단계라면 **Test users**에 로그인할 계정 추가
+3. **APIs & Services** → **Credentials** → **Create Credentials** → **OAuth client ID**
+   - Application type: **Web application**
+   - **Authorized JavaScript origins**: 앱 실행 주소 추가
+     - 개발: `http://localhost:8001`
+     - 프로덕션: 배포 URL
+   - **Authorized redirect URIs**: Supabase 콜백 URL 추가
+     ```
+     https://bmarqwvqkvegnqzbdwlo.supabase.co/auth/v1/callback
+     ```
+4. 생성된 **Client ID**와 **Client Secret** 복사
+
+#### (2) Supabase에 Google 공급자 등록
+
+1. Supabase Dashboard → **Authentication** → **Providers**
+2. **Google** 선택 → **Enable Sign in with Google**: ON
+3. **Client ID**, **Client Secret** 붙여넣기 → **Save**
+
+### 5.2 GitHub OAuth 설정
+
+#### (1) GitHub에서 OAuth App 생성
+
+1. GitHub → **Settings** → **Developer settings** → **OAuth Apps** → **New OAuth App**
+2. 항목 입력:
+   - **Application name**: 임의의 앱 이름 (예: Todo List)
+   - **Homepage URL**: 앱 실행 주소 (예: `http://localhost:8001`)
+   - **Authorization callback URL**: Supabase 콜백 URL
+     ```
+     https://bmarqwvqkvegnqzbdwlo.supabase.co/auth/v1/callback
+     ```
+3. **Register application** 클릭
+4. **Client ID** 확인 후 **Generate a new client secret**으로 Secret 발급·복사
+
+#### (2) Supabase에 GitHub 공급자 등록
+
+1. Supabase Dashboard → **Authentication** → **Providers**
+2. **GitHub** 선택 → **Enable Sign in with GitHub**: ON
+3. **Client ID**, **Client Secret** 붙여넣기 → **Save**
+
+### 5.3 Redirect URL 허용 목록 확인
+
+소셜 로그인 후 앱으로 돌아오는 주소(`redirectTo`)가 허용 목록에 없으면 리다이렉트가 차단됩니다.
+
+**Authentication** → **URL Configuration** → **Redirect URLs**에 다음을 추가:
+
+- 개발: `http://localhost:8001/index.html`
+- 프로덕션: `https://<배포-도메인>/index.html` (예: GitHub Pages URL)
+
+### 5.4 프론트엔드 연동 코드
+
+소셜 로그인 버튼은 `data-oauth-provider` 속성으로 공급자를 지정하며, `auth.js`가 클릭 이벤트를 자동 바인딩합니다.
+
+```html
+<!-- login.html / signup.html 공통 -->
+<div class="social-login">
+    <button type="button" class="btn btn-social btn-google" data-oauth-provider="google">
+        Google로 계속하기
+    </button>
+    <button type="button" class="btn btn-social btn-github" data-oauth-provider="github">
+        GitHub로 계속하기
+    </button>
+</div>
+```
+
+```javascript
+// auth.js
+async function handleSocialLogin(provider) {
+    try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: provider, // 'google' | 'github'
+            options: {
+                redirectTo: `${window.location.origin}/index.html`
+            }
+        });
+        if (error) throw error;
+        // 성공 시 Supabase가 공급자 인증 페이지로 자동 리다이렉트
+    } catch (error) {
+        console.error('소셜 로그인 오류:', error);
+        showMessage(`소셜 로그인 실패: ${error.message}`, 'error');
+    }
+}
+
+// 소셜 로그인 버튼 자동 바인딩
+document.querySelectorAll('[data-oauth-provider]').forEach((btn) => {
+    btn.addEventListener('click', () => handleSocialLogin(btn.dataset.oauthProvider));
+});
+```
+
+> 로그인 성공 후 세션은 기존 `app.js`의 `checkAuth()`(`getSession`)가 그대로 처리하므로 추가 작업이 필요 없습니다. Supabase 클라이언트가 리다이렉트 URL의 토큰을 자동으로 세션으로 변환합니다.
+
+### 5.5 소셜 로그인 테스트 시나리오
+
+1. `python3 -m http.server 8001` 실행 후 `localhost:8001/login.html` 접속
+2. **Google로 계속하기** 클릭 → 구글 동의 화면 → 승인 → index.html 진입 확인
+3. **GitHub로 계속하기** 클릭 → 깃허브 인증 → 승인 → index.html 진입 확인
+4. Supabase Dashboard → **Authentication** → **Users**에서 공급자(`provider`)가 google/github로 표시되는지 확인
+5. `public.users` 테이블에 트리거로 레코드가 자동 생성되었는지 확인
+
+### 5.6 소셜 로그인 문제 해결
+
+| 증상 | 원인 / 해결 |
+|------|-------------|
+| `redirect_uri_mismatch` | 공급자 콘솔의 콜백 URL이 Supabase 콜백 URL과 정확히 일치하지 않음 (오타·슬래시 확인) |
+| `Unsupported provider` | Supabase Providers에서 해당 공급자가 Enable되어 있지 않음 |
+| 로그인 후 login.html로 되돌아감 | **Redirect URLs** 목록에 `redirectTo` 주소가 없음 |
+| Google "앱이 차단됨" | OAuth consent screen이 테스트 모드 → Test users에 계정 추가 또는 앱 게시 |
+| GitHub 이메일 없음 | GitHub 계정 이메일이 비공개 → 공개 이메일 설정 또는 별도 처리 필요 |
+
+---
+
 ## 인증 흐름
 
 ### 회원가입 흐름
@@ -512,6 +649,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 3. 사용자가 링크 클릭 → 자동 로그인
 4. index.html로 리다이렉트
 5. `checkAuth()`로 세션 확인 후 앱 진입
+
+### 소셜 로그인 흐름
+
+1. 사용자가 login.html에서 **Google / GitHub로 계속하기** 클릭
+2. `signInWithOAuth()` 호출 → 공급자 인증 페이지로 리다이렉트
+3. 사용자가 공급자에서 로그인·동의
+4. 공급자 → Supabase 콜백 URL → 앱의 `redirectTo`(index.html)로 복귀
+5. Supabase 클라이언트가 토큰을 세션으로 변환 → `checkAuth()`로 앱 진입
+6. 최초 로그인 시 트리거가 `public.users`에 레코드 자동 생성
 
 ### 세션 관리
 
@@ -602,9 +748,9 @@ SELECT auth.uid();
 
 ### 인증 방식 추가
 
-- OAuth 로그인 (Google, GitHub 등)
+- ✅ OAuth 소셜 로그인 (Google, GitHub) — 5단계 참고 (구현 완료)
+- 추가 소셜 공급자 (Kakao, Apple 등)
 - 비밀번호 기반 로그인
-- 소셜 로그인
 
 ### 사용자 프로필
 

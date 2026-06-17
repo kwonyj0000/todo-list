@@ -69,10 +69,35 @@ async function handleLogin(email) {
     }
 }
 
+// 소셜 로그인 (Google / GitHub) 처리
+async function handleSocialLogin(provider) {
+    try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: provider,
+            options: {
+                redirectTo: `${window.location.origin}/index.html`
+            }
+        });
+
+        if (error) throw error;
+        // 성공 시 Supabase가 공급자 인증 페이지로 자동 리다이렉트합니다.
+    } catch (error) {
+        console.error('소셜 로그인 오류:', error);
+        showMessage(`소셜 로그인 실패: ${error.message}`, 'error');
+    }
+}
+
 // 페이지 로드 시 이벤트 리스너 등록
 document.addEventListener('DOMContentLoaded', () => {
     const signupForm = document.getElementById('signup-form');
     const loginForm = document.getElementById('login-form');
+
+    // 소셜 로그인 버튼 이벤트 등록
+    document.querySelectorAll('[data-oauth-provider]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            handleSocialLogin(btn.dataset.oauthProvider);
+        });
+    });
 
     if (signupForm) {
         signupForm.addEventListener('submit', async (e) => {
